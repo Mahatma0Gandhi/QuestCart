@@ -2,16 +2,32 @@ import { NextResponse } from "next/server";
 import { searchPrava } from "@/lib/prava";
 
 export async function POST(req: Request) {
-  const { plan, mission } = await req.json();
+  try {
+    const { plan, mission } = await req.json();
 
-  // Run all Prava searches in parallel for speed
-  const discoveredPlan = await Promise.all(
-    plan.map(async (item: any) => {
-      // We search for the first query suggested by the Planner
-      const products = await searchPrava(item.search_queries[0], mission);
-      return { ...item, products };
-    })
-  );
+    if (!plan || !Array.isArray(plan)) {
+      return NextResponse.json({ error: "Invalid plan format" }, { status: 400 });
+    }
 
-  return NextResponse.json(discoveredPlan);
+    // Process each category in the plan
+    const discoveryResults = await Promise.all(
+      plan.map(async (item: any) => {
+        // Use the first suggested search query from the planner
+        // If search_queries is missing, fallback to category name
+        const query = item.search_queries?.[0] || item.category;
+        
+        const products = await searchPrava(query, mission || "Shopping Request");
+        
+        return {
+          ...item,
+          products // These are the real products from Prava
+        };
+      })
+    );
+
+    return NextResponse.json(discoveryResults);
+  } catch (error: any) {
+    console.error("Discovery Route Error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
