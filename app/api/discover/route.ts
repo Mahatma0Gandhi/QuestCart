@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
-// INLINED FUNCTION: Bypasses the "Module Not Found" error
 async function searchPrava(query: string, intent: string) {
   const apiKey = process.env.PRAVA_API_KEY;
-  if (!apiKey) return [];
+  if (!apiKey) {
+    console.error("Missing PRAVA_API_KEY");
+    return [];
+  }
 
   try {
     const res = await fetch("https://api.prava.space/v1/shop/search", {
@@ -13,12 +15,13 @@ async function searchPrava(query: string, intent: string) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        query,
-        intent,
+        query: query,
+        intent: intent,
         limit: 3,
         ships_to: "IN",
       }),
     });
+
     if (!res.ok) return [];
     const data = await res.json();
     return data.results || [];
@@ -29,22 +32,21 @@ async function searchPrava(query: string, intent: string) {
 
 export async function POST(req: Request) {
   try {
-    const { plan, mission } = await req.json();
+    const body = await req.json();
     
-    if (!plan || !Array.isArray(plan)) {
-      return NextResponse.json({ error: "No plan provided" }, { status: 400 });
+    // Support both singular 'item' (Popcorn loop) and 'query' (Direct call)
+    const query = body.item?.search_queries?.[0] || body.item?.category || body.query;
+    const mission = body.mission || body.intent || "Shopping Quest";
+
+    if (!query) {
+      return NextResponse.json({ error: "No search query found" }, { status: 400 });
     }
 
-    const discoveryResults = await Promise.all(
-      plan.map(async (item: any) => {
-        const query = item.search_queries?.[0] || item.category;
-        const products = await searchPrava(query, mission || "Shopping");
-        return { ...item, products };
-      })
-    );
-
-    return NextResponse.json(discoveryResults);
+    const results = await searchPrava(query, mission);
+    
+    // Always return an object with a results array so the frontend doesn't crash
+    return NextResponse.json({ results: results || [] });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ results: [], error: error.message }, { status: 500 });
   }
 }
