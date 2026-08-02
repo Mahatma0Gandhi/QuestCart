@@ -1,51 +1,34 @@
 import { NextResponse } from "next/server";
-
-async function searchPrava(query: string, intent: string) {
-  const apiKey = process.env.PRAVA_API_KEY;
-  if (!apiKey) {
-    console.error("Missing PRAVA_API_KEY");
-    return [];
-  }
-
-  try {
-    const res = await fetch("https://api.prava.space/v1/shop/search", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query: query,
-        intent: intent,
-        limit: 3,
-        ships_to: "IN",
-      }),
-    });
-
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.results || [];
-  } catch (e) {
-    return [];
-  }
-}
+import { callPravaTool } from "@/lib/prava-mcp";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    
-    // Support both singular 'item' (Popcorn loop) and 'query' (Direct call)
-    const query = body.item?.search_queries?.[0] || body.item?.category || body.query;
-    const mission = body.mission || body.intent || "Shopping Quest";
+    const { item } = await req.json();
+    const query = item.search_queries?.[0] || item.category;
 
-    if (!query) {
-      return NextResponse.json({ error: "No search query found" }, { status: 400 });
+    console.log(`QUEST_LOG: Executing MCP shop_search for: ${query}`);
+
+    // Call the exact same tool the CLI uses
+    const mcpResponse = await callPravaTool("shop_search", { 
+      query: query
+    });
+
+    // Extract the products from the MCP response content
+    // Note: MCP Tool responses are usually text or JSON inside a content array
+    let products = [];
+    if (mcpResponse.content && mcpResponse.content[0]) {
+        try {
+            const parsed = JSON.parse(mcpResponse.content[0].text);
+            products = parsed.results || [];
+        } catch (e) {
+            console.error("Failed to parse MCP response", e);
+        }
     }
 
-    const results = await searchPrava(query, mission);
-    
-    // Always return an object with a results array so the frontend doesn't crash
-    return NextResponse.json({ results: results || [] });
+    return NextResponse.json({ 
+        ...item, 
+        results: products 
+    });
   } catch (error: any) {
     return NextResponse.json({ results: [], error: error.message }, { status: 500 });
   }
