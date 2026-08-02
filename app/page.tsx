@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Loader2, Search, ShoppingBag, Zap, Target, ArrowRight, CheckCircle2, AlertCircle, Globe
-} from "lucide-react";
+import { Loader2, Zap, ShoppingBag, Globe } from "lucide-react";
 
 export default function QuestCart() {
   const [goal, setGoal] = useState("");
@@ -32,7 +30,7 @@ export default function QuestCart() {
         return;
       }
 
-      setMission(planData.mission);
+      setMission(planData.mission || "Procurement Quest");
       setStatus("discovering");
 
       const discRes = await fetch("/api/discover", {
@@ -43,7 +41,7 @@ export default function QuestCart() {
       const discoveryData = await discRes.json();
       setItems(discoveryData);
       setStatus("done");
-    } catch (err) {
+    } catch {
       setError("Execution failed. Check your API keys.");
       setStatus("idle");
     }
@@ -53,18 +51,16 @@ export default function QuestCart() {
     <main className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-12 font-sans">
       <div className="max-w-3xl mx-auto space-y-10">
         
-        {/* HEADER */}
         <header className="flex justify-between items-center border-b border-zinc-800 pb-6">
           <div className="flex items-center gap-2">
             <Zap size={20} className="text-yellow-400 fill-yellow-400" />
             <h1 className="text-xl font-black tracking-tighter italic uppercase">QuestCart</h1>
           </div>
           <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
-            {status}
+            {status} {mission && `| ${mission}`}
           </span>
         </header>
 
-        {/* INPUT BOX */}
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
           <textarea 
             className="w-full bg-transparent text-xl outline-none resize-none placeholder:text-zinc-800"
@@ -89,10 +85,9 @@ export default function QuestCart() {
           </div>
         )}
 
-        {/* RESULTS */}
         <div className="space-y-6">
-          {items.map((item, idx) => (
-            <div key={idx} className="bg-zinc-900/30 border border-zinc-800 rounded-2xl overflow-hidden transition-all duration-500">
+          {items.map((item: any, idx: number) => (
+            <div key={idx} className="bg-zinc-900/30 border border-zinc-800 rounded-2xl overflow-hidden">
               <div className="p-4 bg-zinc-900/50 border-b border-zinc-800 flex justify-between">
                 <div>
                   <h3 className="text-[10px] font-bold text-zinc-500 uppercase">{item.category}</h3>
@@ -104,11 +99,17 @@ export default function QuestCart() {
               <div className="p-4 space-y-2">
                 {item.products?.map((prod: any, pIdx: number) => (
                   <div key={pIdx} className="bg-zinc-950 p-3 rounded-lg border border-zinc-800 flex justify-between items-center">
-                    <div>
-                      <p className="text-xs font-medium text-zinc-200 line-clamp-1">{prod.name}</p>
-                      <span className="text-[9px] text-zinc-500 uppercase tracking-tighter">{prod.merchant}</span>
+                    <div className="flex items-center gap-3">
+                      <ShoppingBag size={14} className="text-zinc-500" />
+                      <div>
+                        <p className="text-xs font-medium text-zinc-200 line-clamp-1">{prod.name}</p>
+                        <div className="flex items-center gap-1">
+                          <Globe size={8} className="text-zinc-600" />
+                          <span className="text-[9px] text-zinc-500 uppercase tracking-tighter">{prod.merchant}</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-xs font-mono text-yellow-400 whitespace-nowrap">₹{prod.price}</p>
+                    <p className="text-xs font-mono text-yellow-400 whitespace-nowrap ml-4">₹{prod.price.toLocaleString()}</p>
                   </div>
                 ))}
               </div>
