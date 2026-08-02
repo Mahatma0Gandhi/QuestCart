@@ -3,12 +3,22 @@ import { cookies } from "next/headers";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const token = searchParams.get("access_token"); // Prava sends the token here
+  const token = searchParams.get("access_token"); 
 
-  if (token) {
-    const cookieStore = await cookies();
-    cookieStore.set("prava_token", token, { httpOnly: true, secure: true });
+  if (!token) {
+    return NextResponse.json({ error: "Auth failed: No token received" }, { status: 400 });
   }
 
-  return NextResponse.redirect("/"); // Go back to the dashboard
+  const cookieStore = await cookies();
+  // Save the user's agent token in a secure cookie
+  cookieStore.set("prava_agent_token", token, {
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  });
+
+  // Redirect back to the main dashboard
+  return NextResponse.redirect(new URL("/", req.url));
 }
